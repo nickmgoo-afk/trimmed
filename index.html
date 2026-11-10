@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trimmed</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Alegreya+Sans:wght@400;500;700&family=IM+Fell+English&display=swap">
+<style>
+  :root {
+    --stone: #24272e;
+    --stone-raised: #2d313a;
+    --stone-edge: #474c58;
+    --gold: #e2b54f;
+    --parchment: #efe6d2;
+    --ash: #aca699;
+    --blood: #a3402f;
+    --blood-deep: #6f281d;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { background: var(--stone); color: var(--parchment); -webkit-text-size-adjust: 100%; }
+  body { margin: 0; font: 400 17px/1.5 "Alegreya Sans", "Segoe UI", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  main { max-width: 1000px; margin: 0 auto; padding: 28px 20px 72px; }
+  a { color: var(--gold); text-underline-offset: 3px; }
+  a:hover { color: var(--parchment); }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+  h1 { font: 400 clamp(28px, 4.4vw, 46px)/1.08 "IM Fell English", Georgia, serif; margin: 0 0 10px; max-width: 24ch; }
+  .lede { margin: 0; color: var(--ash); max-width: 64ch; }
+  .lede strong { color: var(--parchment); font-weight: 700; }
+
+  .stage { margin-top: 24px; scroll-margin-top: 12px; }
+  .frame { position: relative; aspect-ratio: 16 / 9; background: #000; border-radius: 10px 10px 0 0; overflow: hidden; }
+  .frame iframe, #player { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+
+  /* The cut bar: the whole video, with skipped stretches hatched in red */
+  .bar { position: relative; height: 18px; background: var(--gold); border-radius: 0 0 10px 10px; overflow: hidden; cursor: pointer; }
+  .bar .cut { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, var(--blood) 0 5px, var(--blood-deep) 5px 10px); }
+  .bar .cut.kept { background: repeating-linear-gradient(135deg, rgba(36, 39, 46, .28) 0 5px, transparent 5px 10px); }
+  .bar .head { position: absolute; top: 0; bottom: 0; left: 0; width: 3px; margin-left: -1px; background: var(--parchment); box-shadow: 0 0 0 1px rgba(36, 39, 46, .75); pointer-events: none; }
+
+  .readout { display: flex; flex-wrap: wrap; gap: 4px 20px; justify-content: space-between; margin-top: 10px; color: var(--ash); font-size: 15px; min-height: 1.5em; }
+  #notice { color: var(--gold); transition: opacity .5s; }
+  #notice.fade { opacity: 0; }
+
+  .error { display: none; margin-top: 14px; padding: 12px 14px; border: 1px solid var(--blood); border-radius: 8px; background: rgba(163, 64, 47, .14); }
+  .error.show { display: block; }
+
+  .list { margin-top: 44px; }
+  .list-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 10px 16px; padding-bottom: 12px; border-bottom: 1px solid var(--stone-edge); }
+  .list-head .total { color: var(--ash); font-size: 15px; }
+  h2 { font: 400 27px/1.2 "IM Fell English", Georgia, serif; margin: 0; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; }
+  button { font: inherit; font-size: 15px; color: var(--parchment); background: var(--stone-raised); border: 1px solid var(--stone-edge); border-radius: 6px; padding: 5px 12px; cursor: pointer; }
+  button:hover { border-color: var(--gold); }
+  #linkbox { display: none; width: 100%; margin-top: 12px; font: inherit; font-size: 14px; color: var(--parchment); background: var(--stone-raised); border: 1px solid var(--stone-edge); border-radius: 6px; padding: 6px 8px; }
+  #linkbox.show { display: block; }
+  ol { list-style: none; margin: 0; padding: 0; }
+
+  #eps li { display: grid; grid-template-columns: 2.2em 1fr auto; align-items: baseline; gap: 4px 12px; padding: 9px 2px; border-bottom: 1px solid var(--stone-raised); }
+  #eps .num, #eps .len { color: var(--ash); font-size: 15px; white-space: nowrap; }
+  #eps .ep { font: inherit; color: var(--parchment); background: none; border: 0; padding: 0; text-align: left; cursor: pointer; }
+  #eps .ep:hover { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+  #eps li.now .ep, #eps li.now .num { color: var(--gold); }
+
+  #cutlist li { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 4px 14px; padding: 11px 2px; border-bottom: 1px solid var(--stone-raised); }
+  #cutlist input { width: 18px; height: 18px; margin: 0; accent-color: var(--blood); cursor: pointer; }
+  #cutlist label { display: grid; grid-template-columns: 6.6em 1fr; gap: 2px 14px; cursor: pointer; }
+  #cutlist .when, #cutlist .len { color: var(--ash); font-size: 15px; white-space: nowrap; }
+  #cutlist .peek { font-size: 14px; padding: 3px 10px; }
+  #cutlist li.kept .what { color: var(--ash); }
+  .note { color: var(--ash); font-size: 15px; margin: 16px 0 0; max-width: 70ch; }
+
+  @media (max-width: 640px) {
+    main { padding: 18px 14px 56px; }
+    #cutlist li { grid-template-columns: auto 1fr auto; }
+    #cutlist label { grid-template-columns: 1fr; }
+    #cutlist .len { grid-column: 3; grid-row: 1; }
+    #cutlist .peek { grid-column: 3; grid-row: 2; justify-self: end; }
+  }
+  @media (prefers-reduced-motion: reduce) { #notice { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title">Loading the video</h1>
+    <p class="lede" id="lede"></p>
+  </header>
+
+  <section class="stage" id="stage" aria-label="Video">
+    <div class="frame"><div id="player"></div></div>
+    <div class="bar" id="bar" aria-hidden="true"><div class="head" id="head"></div></div>
+    <div class="readout"><span id="pos"></span><span id="notice" aria-live="polite"></span></div>
+    <div class="error" id="error" role="alert"></div>
+  </section>
+
+  <section class="list" id="series" aria-labelledby="eps-title" hidden>
+    <div class="list-head">
+      <h2 id="eps-title">Episodes</h2>
+      <span class="total" id="series-total"></span>
+    </div>
+    <ol id="eps"></ol>
+    <p class="note">When an episode ends, the next one starts by itself. This browser remembers where you stopped.</p>
+  </section>
+
+  <section class="list" aria-labelledby="cuts-title">
+    <div class="list-head">
+      <h2 id="cuts-title">What gets skipped</h2>
+      <div class="actions">
+        <button type="button" id="skip-all">Skip all</button>
+        <button type="button" id="skip-none">Skip none</button>
+        <button type="button" id="copy">Copy link</button>
+      </div>
+    </div>
+    <input id="linkbox" readonly aria-label="Link to this page">
+    <ol id="cutlist"></ol>
+    <p class="note" id="note"></p>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  // Built-in cuts, used when the link carries none: [start seconds, end seconds, what happens there]
+  const PRESETS = {
+    '89VibSbgnCg': {
+      title: 'The Elder Scrolls 1: Arena, Part 4 – Rihad',
+      blurb: "WoodenPotatoes' episode with the shop dawdling, haggling and side tangents skipped.",
+      duration: 1974,
+      cuts: [
+        [24.50, 130.61, 'Saving rules and palace-guard warnings'],
+        [315.25, 353.60, 'Boss-fight trivia and talking to the queen again'],
+        [353.60, 430.60, 'Chatting with the juggler, historian and other townsfolk'],
+        [451.88, 535.30, 'Asking for directions and the shop-database tangent'],
+        [535.30, 647.10, 'Strategy guide trivia (the Codex)'],
+        [647.10, 742.85, 'Wandering into the shop, selling the broadsword, steal and repair talk'],
+        [751.15, 797.42, "Browsing armor he can't afford"],
+        [850.70, 900.00, 'Free-cuirass bug trivia'],
+        [900.00, 935.65, 'Weapon browsing and daikatana indecision'],
+        [1030.88, 1138.22, 'Getting lost on the way to the Mages Guild'],
+        [1152.28, 1296.68, 'Admiring the mage and paying to identify items'],
+        [1315.12, 1341.80, 'Haggling over healing potions'],
+        [1354.66, 1485.22, 'Haggling (and begging) over Cure Disease and Resist Fire'],
+        [1527.62, 1571.10, 'How dungeon travel works, and the wilderness rant'],
+        [1698.85, 1730.35, 'Spellbook and mana-bar aside']
+      ]
+    }
+  };
+  const DEFAULT_VIDEO = '89VibSbgnCg';
+  const NOTE = "The cuts were picked from the video's captions, so they land between sentences. Untick one to keep that part; this browser remembers your choices.";
+
+  const $ = id => document.getElementById(id);
+  const dec = s => { try { return decodeURIComponent(s.replace(/\+/g, ' ')); } catch (e) { return s; } };
+  function rawParam(name) {
+    for (const part of location.search.replace(/^\?/, '').split('&')) {
+      const i = part.indexOf('=');
+      if ((i < 0 ? part : part.slice(0, i)) === name) return i < 0 ? '' : part.slice(i + 1);
+    }
+    return null;
+  }
+  function parseTime(s) {
+    s = (s || '').trim();
+    if (/^\d+(\.\d+)?s?$/.test(s)) return parseFloat(s);
+    const parts = s.split(':');
+    if (parts.length < 2 || parts.length > 3) return NaN;
+    let t = 0;
+    for (const p of parts) { if (!/^\d+(\.\d+)?$/.test(p)) return NaN; t = t * 60 + parseFloat(p); }
+    return t;
+  }
+  function fmt(t, precise) {
+    t = precise ? Math.round(Math.max(0, t) * 10) / 10 : Math.floor(Math.max(0, t));
+    const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+    let ss = precise ? s.toFixed(1).replace(/\.0$/, '') : String(s);
+    if (s < 10) ss = '0' + ss;
+    return (h ? h + ':' + String(m).padStart(2, '0') : String(m)) + ':' + ss;
+  }
+  function parseCuts(raw) {
+    const out = [];
+    for (const item of raw.split(',')) {
+      if (!item) continue;
+      const [range, label] = item.split('~');
+      const [a, b] = dec(range).split('-');
+      const s = parseTime(a), e = parseTime(b);
+      if (isFinite(s) && isFinite(e) && e > s) out.push([s, e, label ? dec(label) : '']);
+    }
+    return out.sort((x, y) => x[0] - y[0]);
+  }
+
+  // Episode lists travel inside the link as compressed JSON after #s=
+  async function readPacked(str) {
+    const b64 = str.replace(/-/g, '+').replace(/_/g, '/');
+    const bin = atob(b64 + '='.repeat((4 - b64.length % 4) % 4));
+    const bytes = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return JSON.parse(await new Response(stream).text());
+  }
+  function normalize(data) {
+    const eps = [];
+    for (const x of (data && data.e) || []) {
+      if (!x || !/^[\w-]{11}$/.test(x.v)) continue;
+      const c = (x.c || [])
+        .filter(r => Array.isArray(r) && +r[1] > +r[0])
+        .map(r => [+r[0], +r[1], r[2] || ''])
+        .sort((a, b) => a[0] - b[0]);
+      eps.push({ v: x.v, t: x.t || '', d: +x.d || 0, c, b: x.b || '' });
+    }
+    return { title: (data && data.t) || '', eps };
+  }
+  async function loadSeries() {
+    const m = location.hash.match(/[#&]s=([A-Za-z0-9_-]+)/);
+    if (m) {
+      try { const s = normalize(await readPacked(m[1])); if (s.eps.length) return s; } catch (e) {}
+      showMessage("This link's episode list couldn't be read. It may have been cut off when it was copied.");
+    }
+    const v = rawParam('v');
+    if (v != null) {
+      const id = dec(v).trim();
+      const p = PRESETS[id];
+      const cutParam = rawParam('cut');
+      const c = cutParam != null ? parseCuts(cutParam) : (p ? p.cuts : []);
+      return { title: '', single: true, cutParam, eps: [{ v: id, t: p ? p.title : '', d: p ? p.duration : 0, c, b: p ? p.blurb : '' }] };
+    }
+    try {
+      const r = await fetch('series.json', { cache: 'no-cache' });
+      if (r.ok) { const s = normalize(await r.json()); if (s.eps.length) return s; }
+    } catch (e) {}
+    const p = PRESETS[DEFAULT_VIDEO];
+    return { title: '', eps: [{ v: DEFAULT_VIDEO, t: p.title, d: p.duration, c: p.cuts, b: p.blurb }] };
+  }
+
+  // State
+  let series = null, epIndex = 0, ep = null, cuts = [], active = [], duration = 0, storeKey = '';
+  let player = null, apiReady = false, ready = false, state = -1, rate = 1, resumeAt = null;
+  let rep = { t: 0, at: 0, raw: -1 }, guard = { s: -1, until: 0 }, noticeTimer = 0, lastSaved = 0;
+
+  function setEpisode(i) {
+    epIndex = i;
+    ep = series.eps[i];
+    cuts = ep.c.map(r => ({ s: r[0], e: r[1], label: r[2] || '' }));
+    duration = ep.d || 0;
+    storeKey = 'trim:' + ep.v + ':' + cuts.map(c => c.s.toFixed(1) + '-' + c.e.toFixed(1)).join(',');
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(storeKey) || '[]'); } catch (e) { saved = []; }
+    const off = new Set(Array.isArray(saved) ? saved : []);
+    cuts.forEach((c, k) => { c.on = !off.has(k); });
+    rebuild();
+    rep = { t: 0, at: 0, raw: -1 };
+    guard = { s: -1, until: 0 };
+    renderAll();
+  }
+  function saveToggles() {
+    try { localStorage.setItem(storeKey, JSON.stringify(cuts.map((c, k) => (c.on ? -1 : k)).filter(k => k >= 0))); } catch (e) {}
+  }
+  const progressKey = () => 'trim-progress:' + series.eps.map(e => e.v).join('');
+  function saveProgress(t) {
+    if (!series || series.eps.length < 2) return;
+    try { localStorage.setItem(progressKey(), JSON.stringify({ i: epIndex, t: Math.max(0, t || 0) })); } catch (e) {}
+  }
+  function loadProgress() {
+    if (series.eps.length < 2) return null;
+    try {
+      const p = JSON.parse(localStorage.getItem(progressKey()) || 'null');
+      if (p && p.i >= 0 && p.i < series.eps.length) return p;
+    } catch (e) {}
+    return null;
+  }
+
+  // Switched-on cuts merged into the stretches the player jumps over
+  function rebuild() {
+    active = [];
+    for (const c of cuts) {
+      if (!c.on) continue;
+      const last = active[active.length - 1];
+      if (last && c.s <= last.e + 0.05) { last.e = Math.max(last.e, c.e); last.labels.push(c.label); }
+      else active.push({ s: c.s, e: c.e, labels: [c.label] });
+    }
+  }
+  const cutTotal = () => active.reduce((sum, r) => sum + (Math.min(r.e, duration || r.e) - r.s), 0);
+  const startOf = () => (active[0] && active[0].s <= 0.5 ? active[0].e : 0);
+  function editedAt(t) {
+    let x = t;
+    for (const r of active) { if (t >= r.e) x -= r.e - r.s; else if (t > r.s) x -= t - r.s; }
+    return Math.max(0, x);
+  }
+  function keptOf(e, i) {
+    if (i === epIndex) return duration ? duration - cutTotal() : 0;
+    if (!e.d) return 0;
+    let sum = 0, end = -1;
+    for (const r of e.c) { const s = Math.max(r[0], end); if (r[1] > s) { sum += Math.min(r[1], e.d) - s; end = r[1]; } }
+    return Math.max(0, e.d - sum);
+  }
+
+  // Rendering
+  function renderAll() { renderTitle(); renderSummary(); renderBar(); renderList(); renderEps(); }
+  function renderTitle() {
+    const name = ep.t || 'Trimmed YouTube video';
+    $('title').textContent = name;
+    document.title = name + ', trimmed';
+  }
+  function renderSummary() {
+    const lede = $('lede');
+    lede.textContent = '';
+    if (series.eps.length > 1) {
+      lede.append('Episode ' + (epIndex + 1) + ' of ' + series.eps.length + (series.title ? ' in ' + series.title : '') + '. ');
+    } else if (ep.b) {
+      lede.append(ep.b + ' ');
+    } else {
+      const n = cuts.filter(c => c.on).length;
+      lede.append(n ? n + (n === 1 ? ' part' : ' parts') + ' skipped. ' : 'Nothing is skipped. ');
+    }
+    if (duration) {
+      lede.append('Runs ');
+      const strong = document.createElement('strong');
+      strong.textContent = fmt(duration - cutTotal());
+      lede.append(strong, ' instead of ' + fmt(duration) + '. ');
+    }
+    const a = document.createElement('a');
+    a.href = 'https://www.youtube.com/watch?v=' + encodeURIComponent(ep.v);
+    a.target = '_blank';
+    a.rel = 'noopener';
+    a.textContent = 'Watch the original on YouTube';
+    lede.append(a);
+    renderPos(ready ? now() : 0);
+  }
+  function renderBar() {
+    const bar = $('bar');
+    bar.querySelectorAll('.cut').forEach(node => node.remove());
+    if (!duration) return;
+    for (const c of cuts) {
+      if (c.s >= duration) continue;
+      const d = document.createElement('div');
+      d.className = 'cut' + (c.on ? '' : ' kept');
+      d.style.left = (c.s / duration * 100) + '%';
+      d.style.width = ((Math.min(c.e, duration) - c.s) / duration * 100) + '%';
+      d.title = (c.on ? 'Skipped: ' : 'Kept: ') + (c.label || 'cut') + ' (' + fmt(c.s) + '–' + fmt(c.e) + ')';
+      bar.insertBefore(d, $('head'));
+    }
+  }
+  function renderPos(t) {
+    if (!duration) { $('pos').textContent = ''; return; }
+    $('pos').textContent = fmt(editedAt(t)) + ' of ' + fmt(duration - cutTotal());
+    $('head').style.left = (Math.min(t, duration) / duration * 100) + '%';
+  }
+  function renderList() {
+    const list = $('cutlist');
+    list.textContent = '';
+    $('note').textContent = cuts.length ? NOTE : 'Nothing is cut from this one, so the whole video plays.';
+    cuts.forEach((c, i) => {
+      const li = document.createElement('li');
+      const box = document.createElement('input');
+      box.type = 'checkbox';
+      box.id = 'cut-' + i;
+      box.checked = c.on;
+      const label = document.createElement('label');
+      label.htmlFor = box.id;
+      const when = document.createElement('span');
+      when.className = 'when';
+      when.textContent = fmt(c.s) + '–' + fmt(c.e);
+      const what = document.createElement('span');
+      what.className = 'what';
+      what.textContent = c.label || 'Untitled cut';
+      label.append(when, what);
+      const len = document.createElement('span');
+      len.className = 'len';
+      len.textContent = fmt(c.e - c.s);
+      const peek = document.createElement('button');
+      peek.type = 'button';
+      peek.className = 'peek';
+      peek.textContent = 'Play it';
+      peek.setAttribute('aria-label', 'Keep and play: ' + (c.label || fmt(c.s)));
+      box.addEventListener('change', () => { c.on = box.checked; changed(); });
+      peek.addEventListener('click', () => {
+        c.on = false;
+        box.checked = false;
+        changed();
+        if (ready) { player.seekTo(Math.max(0, c.s - 1), true); player.playVideo(); }
+      });
+      li.append(box, label, len, peek);
+      c.li = li;
+      list.append(li);
+    });
+    markKept();
+  }
+  function renderEps() {
+    const box = $('series');
+    if (series.eps.length < 2) { box.hidden = true; return; }
+    box.hidden = false;
+    const ol = $('eps');
+    ol.textContent = '';
+    let kept = 0, full = 0;
+    series.eps.forEach((e, i) => {
+      const li = document.createElement('li');
+      if (i === epIndex) li.className = 'now';
+      const num = document.createElement('span');
+      num.className = 'num';
+      num.textContent = String(i + 1);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'ep';
+      btn.textContent = e.t || 'Episode ' + (i + 1);
+      if (i === epIndex) btn.setAttribute('aria-current', 'true');
+      btn.addEventListener('click', () => { playEpisode(i, null, true); $('stage').scrollIntoView({ block: 'start' }); });
+      const len = document.createElement('span');
+      len.className = 'len';
+      const d = i === epIndex ? duration : e.d;
+      if (d) { const k = keptOf(e, i); len.textContent = fmt(k) + ' of ' + fmt(d); kept += k; full += d; }
+      li.append(num, btn, len);
+      ol.append(li);
+    });
+    $('series-total').textContent = full ? fmt(kept) + ' instead of ' + fmt(full) : '';
+  }
+  function markKept() { cuts.forEach(c => c.li && c.li.classList.toggle('kept', !c.on)); }
+  function changed() { markKept(); rebuild(); saveToggles(); renderBar(); renderSummary(); renderEps(); }
+  function setAll(on) {
+    cuts.forEach((c, i) => { c.on = on; const box = $('cut-' + i); if (box) box.checked = on; });
+    changed();
+  }
+  function flash(text) {
+    const notice = $('notice');
+    notice.textContent = text;
+    notice.classList.remove('fade');
+    clearTimeout(noticeTimer);
+    noticeTimer = setTimeout(() => notice.classList.add('fade'), 4500);
+  }
+  function announce(r) {
+    const labels = r.labels.filter(Boolean);
+    let text = 'Skipped ' + fmt(r.e - r.s);
+    if (labels.length) text += ': ' + labels[0] + (labels.length > 1 ? ' and ' + (labels.length - 1) + ' more' : '');
+    flash(text);
+  }
+  function showMessage(text) {
+    const box = $('error');
+    box.textContent = text;
+    box.classList.add('show');
+  }
+  function showError(code) {
+    const messages = {
+      2: "YouTube didn't recognize the video in this link. Check the part after v=.",
+      5: "This browser couldn't play the video. Reload the page or try another browser.",
+      100: "This video is private or was removed, so it can't play here.",
+      101: "The video's owner doesn't allow it to play outside YouTube.",
+      150: "The video's owner doesn't allow it to play outside YouTube.",
+      152: "YouTube won't play the video on this website (error 152). Open the page from its usual link.",
+      153: 'YouTube refused to load the player because this page has no web address (error 153). Open it from its link instead of as a file on your computer.'
+    };
+    showMessage(messages[code] || 'The YouTube player stopped with error ' + code + '. Reload the page to try again.');
+  }
+
+  $('skip-all').addEventListener('click', () => setAll(true));
+  $('skip-none').addEventListener('click', () => setAll(false));
+  $('copy').addEventListener('click', async () => {
+    let url = location.href;
+    if (series && series.single) {
+      const p = PRESETS[ep.v];
+      url = location.origin + location.pathname + '?v=' + encodeURIComponent(ep.v);
+      if (!(p && series.cutParam == null && cuts.every(c => c.on))) {
+        url += '&cut=' + cuts.filter(c => c.on).map(c =>
+          fmt(c.s, true) + '-' + fmt(c.e, true) + (c.label ? '~' + encodeURIComponent(c.label.replace(/~/g, '-')) : '')
+        ).join(',');
+      }
+    }
+    const btn = $('copy');
+    try {
+      await navigator.clipboard.writeText(url);
+      btn.textContent = 'Link copied';
+      setTimeout(() => { btn.textContent = 'Copy link'; }, 2000);
+    } catch (e) {
+      const box = $('linkbox');
+      box.value = url;
+      box.classList.add('show');
+      box.focus();
+      box.select();
+    }
+  });
+  $('bar').addEventListener('click', e => {
+    if (!ready || !duration) return;
+    const rect = e.currentTarget.getBoundingClientRect();
+    let t = (e.clientX - rect.left) / rect.width * duration;
+    const r = active.find(x => t >= x.s && t < x.e);
+    if (r) t = r.e;
+    player.seekTo(Math.max(0, Math.min(t, duration - 0.5)), true);
+  });
+  window.addEventListener('hashchange', () => location.reload());
+
+  // Player and skipping
+  // The embedded player reports its time a few times a second; fill in between those reports
+  function now() {
+    const raw = player.getCurrentTime() || 0;
+    const p = performance.now();
+    if (raw !== rep.raw) rep = { t: raw, at: p, raw };
+    if (state === 1) return rep.t + Math.min(0.75, (p - rep.at) / 1000) * rate;
+    return raw;
+  }
+  function skipCheck() {
+    if (!ready || (state !== 1 && state !== 3)) return;
+    const t = now();
+    const r = active.find(x => t >= x.s - 0.03 && t < x.e - 0.05);
+    if (!r) return;
+    const p = performance.now();
+    if (guard.s === r.s && p < guard.until) return;
+    guard = { s: r.s, until: p + 800 };
+    announce(r);
+    if (duration && r.e >= duration - 0.3) { next(); return; }
+    player.seekTo(r.e, true);
+    rep = { t: r.e, at: p, raw: rep.raw };
+  }
+  function playEpisode(i, at, autoplay) {
+    setEpisode(i);
+    const start = at != null ? at : startOf();
+    saveProgress(start);
+    if (!player || !ready) return;
+    state = -1;
+    if (autoplay) player.loadVideoById({ videoId: ep.v, startSeconds: start });
+    else player.cueVideoById({ videoId: ep.v, startSeconds: start });
+  }
+  function next() {
+    if (series.eps.length < 2) { try { player.pauseVideo(); } catch (e) {} return; }
+    if (epIndex + 1 < series.eps.length) {
+      playEpisode(epIndex + 1, null, true);
+      flash('Now playing episode ' + (epIndex + 1) + '.');
+    } else {
+      try { player.pauseVideo(); } catch (e) {}
+      flash('That was the last episode.');
+    }
+  }
+  function create() {
+    if (!apiReady || !series || player) return;
+    const startAt = resumeAt != null ? resumeAt : startOf();
+    player = new YT.Player('player', {
+      videoId: ep.v,
+      playerVars: { playsinline: 1, rel: 0, start: Math.floor(startAt) },
+      events: {
+        onReady: () => {
+          ready = true;
+          const d = player.getDuration();
+          if (d) { duration = d; if (!ep.d) ep.d = d; }
+          renderAll();
+        },
+        onStateChange: e => {
+          state = e.data;
+          if (state === 1) {
+            const d = player.getDuration();
+            if (d && Math.abs(d - duration) > 0.5) { duration = d; if (!ep.d) ep.d = d; renderSummary(); renderBar(); renderEps(); }
+            skipCheck();
+          } else if (state === 0) {
+            next();
+          }
+        },
+        onPlaybackRateChange: e => { rate = e.data || 1; },
+        onError: e => showError(e.data)
+      }
+    });
+  }
+
+  window.onYouTubeIframeAPIReady = function () { apiReady = true; create(); };
+  setInterval(skipCheck, 40);
+  setInterval(() => {
+    if (!ready) return;
+    const t = now();
+    renderPos(t);
+    if (state === 1 && performance.now() - lastSaved > 5000) { lastSaved = performance.now(); saveProgress(t); }
+  }, 250);
+  setTimeout(() => {
+    if (!window.YT || !window.YT.Player) showMessage("The YouTube player didn't load. Check your connection or any content blocker, then reload the page.");
+  }, 12000);
+
+  // Handle for checking the page from the browser console
+  window.trimmed = { player: () => player, series: () => series, episode: () => epIndex, now: () => (ready ? now() : 0), go: i => playEpisode(i, null, true) };
+
+  loadSeries().then(s => {
+    series = s;
+    const prog = loadProgress();
+    setEpisode(prog ? prog.i : 0);
+    if (prog && prog.t > 1) { resumeAt = prog.t; flash('Picking up where you stopped.'); }
+    create();
+  });
+})();
+</script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</body>
+</html>
