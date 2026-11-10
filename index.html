@@ -256,15 +256,16 @@
   function saveToggles() {
     try { localStorage.setItem(storeKey, JSON.stringify(cuts.map((c, k) => (c.on ? -1 : k)).filter(k => k >= 0))); } catch (e) {}
   }
-  const progressKey = () => 'trim-progress:' + series.eps.map(e => e.v).join('');
+  const progressKey = () => 'trim-progress:' + (series.title || series.eps.map(e => e.v).join(''));
   function saveProgress(t) {
     if (!series || series.eps.length < 2) return;
-    try { localStorage.setItem(progressKey(), JSON.stringify({ i: epIndex, t: Math.max(0, t || 0) })); } catch (e) {}
+    try { localStorage.setItem(progressKey(), JSON.stringify({ v: ep.v, i: epIndex, t: Math.max(0, t || 0) })); } catch (e) {}
   }
   function loadProgress() {
     if (series.eps.length < 2) return null;
     try {
       const p = JSON.parse(localStorage.getItem(progressKey()) || 'null');
+      if (p && p.v) { const i = series.eps.findIndex(e => e.v === p.v); if (i >= 0) return { i, t: p.t }; }
       if (p && p.i >= 0 && p.i < series.eps.length) return p;
     } catch (e) {}
     return null;
